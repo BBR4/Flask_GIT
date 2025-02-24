@@ -18,8 +18,8 @@
                     <!--     <li class="nav-item"><a class="nav-link" href="{{ url_for('admin') }}">Admin</a></li>-->
                     <li class="nav-item"><a class="nav-link" href="{{ url_for('contact') }}">Contact</a></li>
                     <li class="nav-item"><a class="nav-link" href="{{ url_for('portfolio') }}">Portfolio</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('signup') }}">Sign up</a></li>
 
-                
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             Login
@@ -34,6 +34,19 @@
         </div>
     </nav>
     
+    <!-- Flash Message Display -->
+    <div class="container mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="alert alert-dismissible fade show" role="alert">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} mt-2">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+    </div>
+
     <div class="container mt-4">
         {% block content %}{% endblock %}
     </div>

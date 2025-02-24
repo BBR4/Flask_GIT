@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Admin Login{% endblock %}
+{% block title %}{{ user_type }} Login{% endblock %}
 
 {% block content %}
     <div class="container mt-5">
-        <h2>Admin Login</h2>
+        <h2>{{ user_type }} Login</h2>
         <form method="POST">
             <div class="mb-3">
                 <label for="username" class="form-label">Username</label>

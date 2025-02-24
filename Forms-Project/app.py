@@ -35,5 +35,16 @@ def contact():
 def admin():
     return render_template('admin.html')
 
+#route for user login
+@app.route('/login/user')
+def user_login():
+    return render_template('user_login.html')
+
+#route for admin login
+@app.route('/login/admin')
+def admin_login():
+    return render_template('admin_login.html')
+
+
 if __name__ == '__main__':
     app.run(debug=True)

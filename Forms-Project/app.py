@@ -134,19 +134,26 @@ def admin_dashboard():
 def admin_register():
     if request.method == "POST":
         username = request.form.get("username")
+        password = request.form.get("password")
+
+        # Check if admin username already exists
         if Admins.query.filter_by(username=username).first():
             flash("Admin username already exists!", "danger")
             return redirect(url_for("admin_register"))
-        
-        hashed_password = bcrypt.generate_password_hash(request.form.get("password")).decode('utf-8')
+
+        # Hash password and store admin in database
+        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
         admin = Admins(username=username, password=hashed_password)
         db.session.add(admin)
         db.session.commit()
 
         flash("Admin account created successfully!", "success")
         return redirect(url_for("admin_login"))
-    
+
     return render_template("admin_sign_up.html")
+
+
+#/admin-register to register admin
 
 # Admin Login
 @app.route('/login/admin', methods=["GET", "POST"])

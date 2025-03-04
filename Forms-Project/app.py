@@ -12,114 +12,91 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:Josrub123@localhos
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  
 app.config['SECRET_KEY'] = 'your-secret-key'  
 
-# Initialize Database Bcrypt for password hashing
+# Initialize Database and Bcrypt for password hashing
 db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"  
-bcrypt = Bcrypt(app) #I'm here
+bcrypt = Bcrypt(app)
 
-# User Model (table name: users)
+# Unified User Model (table name: users)
 class Users(UserMixin, db.Model):
     __tablename__ = 'users'  
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(250), unique=True, nullable=False)  
     password = db.Column(db.String(250), nullable=False)  # Hashed passwords stored securely
-    role = db.Column(db.String(50), default="user", nullable=False) 
+    role = db.Column(db.String(50), default="user", nullable=False)  # "user" or "admin"
 
-# Admin Model (table name: admin)
-class Admins(UserMixin, db.Model):
-    __tablename__ = 'admin'  
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(250), unique=True, nullable=False)  
-    password = db.Column(db.String(250), nullable=False)  # Hashed passwords stored securely
-    role = db.Column(db.String(50), default="admin", nullable=False)  
-
-#Loads users from database
 @login_manager.user_loader
 def load_user(user_id):
-    admin = Admins.query.get(int(user_id))  
-    if admin:
-        return admin 
-    return Users.query.get(int(user_id)) 
+    return Users.query.get(int(user_id))
 
-# 
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or not isinstance(current_user, Admins):
-            flash("Unauthorized access!", "danger")  # Show error message if unauthorized
-            return redirect(url_for("home"))  # Redirect unauthorized users to home page
+        if not current_user.is_authenticated or current_user.role != "admin":
+            flash("Unauthorized access!", "danger")
+            return redirect(url_for("home"))  
         return f(*args, **kwargs)
     return decorated_function
 
-# ========== ROUTES!!!! ==========
+# ========== ROUTES ==========
 
-# Home Page
 @app.route('/')
 def home():
     return render_template('homepage.html')
 
-# Portfolio Page
 @app.route('/portfolio')
 def portfolio():
     return render_template('portfolio.html')
 
-# About Page
 @app.route('/about')
 def about():
     return render_template('about.html')
 
-# Contact Page
 @app.route('/contact')
 def contact():
     return render_template('contact.html')
 
-# User Login
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        user = Users.query.filter_by(username=request.form.get("username")).first()  # Check for regular user
-        admin = Admins.query.filter_by(username=request.form.get("username")).first()  # Check for admin
+        username = request.form.get("username")
+        password = request.form.get("password")
 
-        # Authenticate user
-        if user and bcrypt.check_password_hash(user.password, request.form.get("password")):
-            login_user(user)
+        user = Users.query.filter_by(username=username).first()
+        if user and bcrypt.check_password_hash(user.password, password):
+            login_user(user, remember=True)
             flash("Login successful!", "success")
-            return redirect(url_for("home"))  
 
-        # Authenticate admin
-        if admin and bcrypt.check_password_hash(admin.password, request.form.get("password")):
-            login_user(admin)
-            flash("Admin login successful!", "success")
-            return redirect(url_for("admin_dashboard"))  
-        
-        flash("Invalid username or password!", "danger")  # Show error if credentials are incorrect
-    
-    return render_template("user_login.html") 
+            # Redirect based on role
+            if user.role == "admin":
+                return redirect(url_for("admin_dashboard"))
+            return redirect(url_for("home"))
 
-# User Logout
+        flash("Invalid username or password!", "danger")
+
+    return render_template("user_login.html")
+
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
-    flash("You have been logged out.", "info")  # Inform user of successful logout
+    flash("You have been logged out.", "info")
     return redirect(url_for("home"))
 
-# User Signup
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
         username = request.form['username']
-        password = bcrypt.generate_password_hash(request.form['password']).decode('utf-8')  # Hash password before storing
+        password = bcrypt.generate_password_hash(request.form['password']).decode('utf-8')
+        role = request.form.get("role", "user")  # Defaults to "user" unless specified
 
-        # Ensure username is unique
-        if Users.query.filter_by(username=username).first() or Admins.query.filter_by(username=username).first():
+        if Users.query.filter_by(username=username).first():
             flash('This username is already taken. Please choose another one.', 'danger')
             return redirect(url_for('signup'))
 
-        # Create new user and store in database
-        user = Users(username=username, password=password)
+        user = Users(username=username, password=password, role=role)
         db.session.add(user)
         db.session.commit()
 
@@ -128,53 +105,37 @@ def signup():
 
     return render_template('sign_up.html')
 
-
 @app.route('/admin-dashboard')
 @login_required
 @admin_required
 def admin_dashboard():
     return render_template('admin_dashboard.html')
 
-# Admin Registration
 @app.route('/admin-register', methods=["GET", "POST"])
+@admin_required
 def admin_register():
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
 
-        # Ensure admin username is unique
-        if Admins.query.filter_by(username=username).first():
+        if Users.query.filter_by(username=username).first():
             flash("Admin username already exists!", "danger")
             return redirect(url_for("admin_register"))
 
-        # Hash password and store new admin in database
         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-        admin = Admins(username=username, password=hashed_password)
+        admin = Users(username=username, password=hashed_password, role="admin")
         db.session.add(admin)
         db.session.commit()
 
         flash("Admin account created successfully!", "success")
-        return redirect(url_for("admin_login"))
+        return redirect(url_for("admin_dashboard"))
 
     return render_template("admin_sign_up.html")
 
-# Admin Login
-@app.route('/login/admin', methods=["GET", "POST"])
+@app.route('/admin-login', methods=["GET", "POST"])
 def admin_login():
-    if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-
-        admin = Admins.query.filter_by(username=username).first()  # Retrieve admin by username
-        if admin and bcrypt.check_password_hash(admin.password, password):
-            login_user(admin)
-            flash("Admin login successful!", "success")
-            return redirect(url_for("admin_dashboard"))  # Redirect admin to dashboard
-        
-        flash("Invalid admin credentials", "danger")  # Show error if authentication fails
-    
-    return render_template('admin_login.html', user_type="Admin")  
+    return render_template('admin_login.html')
 
 
 if __name__ == '__main__':
-    app.run(debug=True)  
+    app.run(debug=True)

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Wallet{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Your Wallet</h2>
+    <p>Current Balance: <strong>${{ balance }}</strong></p>
+
+    <form method="POST">
+        <div class="mb-3">
+            <label for="amount" class="form-label">Enter Amount</label>
+            <input type="number" class="form-control" id="amount" name="amount" min="1" required>
+        </div>
+        <button type="submit" name="action" value="deposit" class="btn btn-success">Deposit</button>
+        <button type="submit" name="action" value="withdraw" class="btn btn-danger">Withdraw</button>
+    </form>
+</div>
+{% endblock %}

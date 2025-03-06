@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Transaction History{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mt-4">Transaction History</h2>
+
+    {% if transactions %}
+        <table class="table table-striped mt-3">
+            <thead>
+                <tr>
+                    <th>Stock</th>
+                    <th>Type</th>
+                    <th>Quantity</th>
+                    <th>Price per Share</th>
+                    <th>Total Price</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in transactions %}
+                <tr>
+                    <td>{{ transaction.stock.ticker }}</td>
+                    <td>{{ transaction.transaction_type.capitalize() }}</td>
+                    <td>{{ transaction.quantity }}</td>
+                    <td>${{ "%.2f"|format(transaction.price_at_trade) }}</td>
+                    <td>${{ "%.2f"|format(transaction.price_at_trade * transaction.quantity) }}</td>
+                    <td>{{ transaction.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No transactions found.</p>
+    {% endif %}
+</div>
+{% endblock %}

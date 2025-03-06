@@ -1,5 +1,85 @@
-/* Show dropdown on hover */
+/* Set the background color of the entire page */
+body {
+    background-color: #13072e !important;  /* Dark purple background */
+    color: white; /* Makes text readable */
+}
+
+/* Set a slightly darker background for the navbar */
+.navbar {
+    background-color: #1a093c !important; /* Darker navbar */
+}
+
+/* Style dropdown to show on hover */
 .nav-item.dropdown:hover .dropdown-menu {
     display: block;
     margin-top: 0;
+}
+
+/* 🔹 Dropdown Menu Styling */
+.dropdown-menu {
+    background-color: #1a093c !important;  /* Dark background */
+    border: 1px solid #3d2f5d; /* Optional border for better visibility */
+}
+
+/* 🔹 Dropdown Menu Item Styling */
+.dropdown-item {
+    color: white !important;  /* White text */
+}
+
+/* 🔹 Change dropdown item background on hover */
+.dropdown-item:hover {
+    background-color: #3d2f5d !important; /* Slightly lighter purple */
+    color: white !important;
+}
+
+/* Ensure all text in the website is visible */
+a, p, h1, h2, h3, h4, h5, h6 {
+    color: white !important;
+}
+
+/* Container spacing for better layout */
+.container {
+    padding: 20px;
+}
+
+/* Change form label text color */
+label {
+    color: white !important;
+    font-weight: bold;
+}
+
+/* Change placeholder text color inside input fields */
+input::placeholder {
+    color: rgba(255, 255, 255, 0.7); /* Light gray for readability */
+}
+
+/* Ensure form fields have white text */
+input, textarea {
+    color: white !important;
+    background-color: #1a093c !important; /* Matches dark theme */
+    border: 1px solid #3d2f5d !important; /* Slight contrast */
+}
+
+/* Improve button styling */
+button {
+    background-color: #007bff !important;
+    border-color: #0056b3 !important;
+    color: white !important;
+}
+button:hover {
+    background-color: #0056b3 !important;
+}
+
+.navbar-brand img {
+    height: 40px;
+    width: auto;
+    margin-right: 10px;
+}
+
+/* Make the STOX navbar text bold */
+.navbar-brand {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800; /* Extra bold */
+    font-size: 24px; /* Adjust size as needed */
+    color: white; /* Ensure contrast */
 }

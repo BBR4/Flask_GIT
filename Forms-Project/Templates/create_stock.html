@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Create Stock{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Create New Stock</h2>
+    <form method="POST">
+        <div class="mb-3">
+            <label for="ticker" class="form-label">Stock Ticker</label>
+            <input type="text" class="form-control" id="ticker" name="ticker" required>
+        </div>
+        <div class="mb-3">
+            <label for="company_name" class="form-label">Company Name</label>
+            <input type="text" class="form-control" id="company_name" name="company_name" required>
+        </div>
+        <div class="mb-3">
+            <label for="volume" class="form-label">Total Volume</label>
+            <input type="number" class="form-control" id="volume" name="volume" required>
+        </div>
+        <div class="mb-3">
+            <label for="current_price" class="form-label">Stock Price</label>
+            <input type="number" step="0.01" class="form-control" id="current_price" name="current_price" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Create Stock</button>
+    </form>
+</div>
+{% endblock %}

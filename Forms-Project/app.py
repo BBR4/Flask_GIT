@@ -8,7 +8,7 @@ from functools import wraps
 app = Flask(__name__)
 
 # Database Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:Josrub123@localhost/stox'  
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root@localhost/stox'  
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  
 app.config['SECRET_KEY'] = 'your-secret-key'  
 
@@ -39,6 +39,85 @@ def admin_required(f):
             return redirect(url_for("home"))  
         return f(*args, **kwargs)
     return decorated_function
+
+class Stocks(db.Model):
+    __tablename__ = 'stocks'
+    id = db.Column(db.Integer, primary_key=True)
+    ticker = db.Column(db.String(10), unique=True, nullable=False)
+    company_name = db.Column(db.String(100), nullable=False)
+    volume = db.Column(db.Integer, nullable=False)  # Total shares available
+    current_price = db.Column(db.Float, nullable=False)
+    opening_price = db.Column(db.Float, nullable=False)
+    high_price = db.Column(db.Float, nullable=False)
+    low_price = db.Column(db.Float, nullable=False)
+    market_cap = db.Column(db.Float, nullable=False)
+
+    def update_market_cap(self):
+        self.market_cap = self.volume * self.current_price
+
+class Transactions(db.Model):
+    __tablename__ = 'transactions'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    stock_id = db.Column(db.Integer, db.ForeignKey('stocks.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    price_at_trade = db.Column(db.Float, nullable=False)
+    transaction_type = db.Column(db.String(10), nullable=False)  # "buy" or "sell"
+    timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    user = db.relationship('Users', backref='transactions')
+    stock = db.relationship('Stocks', backref='transactions')
+
+class CashAccounts(db.Model):
+    __tablename__ = 'cash_accounts'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
+    balance = db.Column(db.Float, default=0.0, nullable=False)
+
+    user = db.relationship('Users', backref='cash_account')
+
+# ========================== TRANSACTION HISTORY ROUTE ==========================
+
+@app.route('/transactions')
+@login_required
+def transactions():
+    user_transactions = Transactions.query.filter_by(user_id=current_user.id).all()
+    return render_template("transactions.html", transactions=user_transactions)
+
+# ========================== USER WALLET MANAGEMENT ==========================
+
+@app.route('/wallet', methods=['GET', 'POST'])
+@login_required
+def wallet():
+    # Check if the user has a cash account, if not, create one with $10,000
+    cash_account = CashAccounts.query.filter_by(user_id=current_user.id).first()
+    
+    if not cash_account:
+        cash_account = CashAccounts(user_id=current_user.id, balance=10000.0)  # Start with $10,000
+        db.session.add(cash_account)
+        db.session.commit()
+        flash("New wallet created with $10,000 starting balance!", "success")
+
+    if request.method == 'POST':
+        action = request.form.get('action')  # "deposit" or "withdraw"
+        amount = float(request.form.get('amount'))
+
+        if action == "deposit":
+            cash_account.balance += amount
+            flash(f"Successfully deposited ${amount}!", "success")
+
+        elif action == "withdraw":
+            if cash_account.balance >= amount:
+                cash_account.balance -= amount
+                flash(f"Successfully withdrew ${amount}!", "success")
+            else:
+                flash("Insufficient funds for withdrawal!", "danger")
+
+        db.session.commit()
+        return redirect(url_for("wallet"))
+
+    return render_template("wallet.html", balance=cash_account.balance)
+
 
 # ========== ROUTES ==========
 
@@ -135,6 +214,198 @@ def admin_register():
 @app.route('/admin-login', methods=["GET", "POST"])
 def admin_login():
     return render_template('admin_login.html')
+
+# ========================== ADMIN STOCK MANAGEMENT ==========================
+
+# 🔹 Create Stock (Admin Only)
+@app.route('/admin/stocks/create', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def create_stock():
+    if request.method == 'POST':
+        ticker = request.form.get('ticker').upper()
+        company_name = request.form.get('company_name')
+        volume = int(request.form.get('volume'))
+        current_price = float(request.form.get('current_price'))
+
+        # Ensure stock doesn't already exist
+        if Stocks.query.filter_by(ticker=ticker).first():
+            flash("Stock already exists!", "danger")
+            return redirect(url_for("create_stock"))
+
+        stock = Stocks(
+            ticker=ticker,
+            company_name=company_name,
+            volume=volume,
+            current_price=current_price,
+            opening_price=current_price,
+            high_price=current_price,
+            low_price=current_price
+        )
+        stock.update_market_cap()
+
+        db.session.add(stock)
+        db.session.commit()
+        flash(f"Stock {ticker} created successfully!", "success")
+        return redirect(url_for("view_stocks"))
+
+    return render_template("create_stock.html")
+
+
+# 🔹 View All Stocks (Admin Only)
+@app.route('/admin/stocks')
+@login_required
+@admin_required
+def view_stocks():
+    stocks = Stocks.query.all()
+    return render_template("view_stocks.html", stocks=stocks)
+
+
+# 🔹 Update Stock Price & Volume (Admin Only)
+@app.route('/admin/stocks/update/<int:stock_id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def update_stock(stock_id):
+    stock = Stocks.query.get_or_404(stock_id)
+
+    if request.method == 'POST':
+        stock.current_price = float(request.form.get('current_price'))
+        stock.volume = int(request.form.get('volume'))
+        stock.update_market_cap()
+
+        db.session.commit()
+        flash(f"Stock {stock.ticker} updated successfully!", "success")
+        return redirect(url_for("view_stocks"))
+
+    return render_template("update_stock.html", stock=stock)
+
+
+# 🔹 Delete Stock (Admin Only)
+@app.route('/admin/stocks/delete/<int:stock_id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_stock(stock_id):
+    stock = Stocks.query.get_or_404(stock_id)
+    db.session.delete(stock)
+    db.session.commit()
+    flash(f"Stock {stock.ticker} deleted successfully!", "danger")
+    return redirect(url_for("view_stocks"))
+
+
+@app.route('/buy-stock', methods=['GET', 'POST'])
+@login_required
+def buy_stock():
+    stocks = Stocks.query.all()  # Get all available stocks
+
+    if request.method == 'POST':
+        stock_id = int(request.form.get('stock_id'))
+        quantity = int(request.form.get('quantity'))
+
+        # Look up stock
+        stock = Stocks.query.get(stock_id)
+        if not stock:
+            flash("Stock not found!", "danger")
+            return redirect(url_for("buy_stock"))
+
+        total_cost = stock.current_price * quantity
+
+        # Check if user has enough cash
+        cash_account = CashAccounts.query.filter_by(user_id=current_user.id).first()
+        if not cash_account or cash_account.balance < total_cost:
+            flash("Insufficient funds!", "danger")
+            return redirect(url_for("buy_stock"))
+
+        # Check if stock has enough volume available
+        if stock.volume < quantity:
+            flash("Not enough stock available!", "danger")
+            return redirect(url_for("buy_stock"))
+
+        # Perform transaction
+        cash_account.balance -= total_cost  # Deduct from user's cash balance
+        stock.volume -= quantity  # Reduce available stock volume
+        stock.update_market_cap()  # Update stock market cap
+
+        # Record transaction
+        transaction = Transactions(
+            user_id=current_user.id,
+            stock_id=stock.id,
+            quantity=quantity,
+            price_at_trade=stock.current_price,
+            transaction_type="buy"
+        )
+        db.session.add(transaction)
+        db.session.commit()
+
+        flash(f"Successfully bought {quantity} shares of {stock.ticker}!", "success")
+        return redirect(url_for("portfolio"))
+
+    return render_template("buy_stock.html", stocks=stocks)
+
+@app.route('/sell-stock', methods=['GET', 'POST'])
+@login_required
+def sell_stock():
+    # Get user's owned stocks (based on past transactions)
+    owned_stocks = db.session.query(
+        Stocks, db.func.sum(Transactions.quantity).label('total_shares')
+    ).join(Transactions).filter(
+        Transactions.user_id == current_user.id,
+        Transactions.transaction_type == "buy"
+    ).group_by(Stocks.id).having(db.func.sum(Transactions.quantity) > 0).all()
+
+    if request.method == 'POST':
+        stock_id = int(request.form.get('stock_id'))
+        quantity = int(request.form.get('quantity'))
+
+        # Get stock info
+        stock = Stocks.query.get(stock_id)
+        if not stock:
+            flash("Stock not found!", "danger")
+            return redirect(url_for("sell_stock"))
+
+        # Check if user owns enough shares
+        user_shares = db.session.query(db.func.sum(Transactions.quantity)).filter(
+            Transactions.user_id == current_user.id,
+            Transactions.stock_id == stock_id,
+            Transactions.transaction_type == "buy"
+        ).scalar() or 0  # Default to 0 if no shares
+
+        if user_shares < quantity:
+            flash("You don't have enough shares to sell!", "danger")
+            return redirect(url_for("sell_stock"))
+
+        # Perform sale
+        cash_account = CashAccounts.query.filter_by(user_id=current_user.id).first()
+        cash_account.balance += stock.current_price * quantity  # Add money to user balance
+        stock.volume += quantity  # Return stock volume to the market
+        stock.update_market_cap()
+
+        # Record transaction
+        transaction = Transactions(
+            user_id=current_user.id,
+            stock_id=stock.id,
+            quantity=-quantity,  # Negative quantity to represent selling
+            price_at_trade=stock.current_price,
+            transaction_type="sell"
+        )
+        db.session.add(transaction)
+        db.session.commit()
+
+        flash(f"Successfully sold {quantity} shares of {stock.ticker}!", "success")
+        return redirect(url_for("portfolio"))
+
+    return render_template("sell_stock.html", owned_stocks=owned_stocks)
+
+
+with app.app_context():
+    db.create_all()
+    
+    # Ensure an admin user exists
+    if not Users.query.filter_by(username="admin").first():
+        hashed_password = bcrypt.generate_password_hash("admin123").decode('utf-8')
+        admin = Users(username="admin", password=hashed_password, role="admin")
+        db.session.add(admin)
+        db.session.commit()
+        print("✅ Admin account created: Username: admin | Password: admin123")
 
 
 if __name__ == '__main__':

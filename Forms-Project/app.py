@@ -126,8 +126,18 @@ def home():
     return render_template('homepage.html')
 
 @app.route('/portfolio')
+@login_required
 def portfolio():
-    return render_template('portfolio.html')
+    # Calculate user's net owned shares (Buy - Sell)
+    user_transactions = db.session.query(
+        Stocks.ticker, Stocks.company_name,
+        db.func.sum(Transactions.quantity).label('total_shares'),
+        Stocks.current_price
+    ).join(Transactions).filter(
+        Transactions.user_id == current_user.id
+    ).group_by(Stocks.id).having(db.func.sum(Transactions.quantity) > 0).all()
+
+    return render_template("portfolio.html", stocks=user_transactions)
 
 @app.route('/about')
 def about():
@@ -344,12 +354,12 @@ def buy_stock():
 @app.route('/sell-stock', methods=['GET', 'POST'])
 @login_required
 def sell_stock():
-    # Get user's owned stocks (based on past transactions)
+    # Get user's owned stocks (net quantity: buy - sell)
     owned_stocks = db.session.query(
-        Stocks, db.func.sum(Transactions.quantity).label('total_shares')
+        Stocks.id, Stocks.ticker, Stocks.company_name,
+        db.func.sum(Transactions.quantity).label('total_shares')
     ).join(Transactions).filter(
-        Transactions.user_id == current_user.id,
-        Transactions.transaction_type == "buy"
+        Transactions.user_id == current_user.id
     ).group_by(Stocks.id).having(db.func.sum(Transactions.quantity) > 0).all()
 
     if request.method == 'POST':
@@ -362,11 +372,12 @@ def sell_stock():
             flash("Stock not found!", "danger")
             return redirect(url_for("sell_stock"))
 
-        # Check if user owns enough shares
-        user_shares = db.session.query(db.func.sum(Transactions.quantity)).filter(
+        # Get user's available shares for the selected stock
+        user_shares = db.session.query(
+            db.func.sum(Transactions.quantity)
+        ).filter(
             Transactions.user_id == current_user.id,
-            Transactions.stock_id == stock_id,
-            Transactions.transaction_type == "buy"
+            Transactions.stock_id == stock_id
         ).scalar() or 0  # Default to 0 if no shares
 
         if user_shares < quantity:
@@ -394,6 +405,7 @@ def sell_stock():
         return redirect(url_for("portfolio"))
 
     return render_template("sell_stock.html", owned_stocks=owned_stocks)
+
 
 
 with app.app_context():

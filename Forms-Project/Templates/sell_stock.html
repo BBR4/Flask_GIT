@@ -9,8 +9,8 @@
         <div class="mb-3">
             <label for="stock_id" class="form-label">Select Stock to Sell</label>
             <select class="form-control" id="stock_id" name="stock_id" required>
-                {% for stock, total_shares in owned_stocks %}
-                    <option value="{{ stock.id }}">{{ stock.ticker }} - You own: {{ total_shares }} shares</option>
+                {% for stock_id, ticker, company_name, total_shares in owned_stocks %}
+                    <option value="{{ stock_id }}">{{ ticker }} - You own: {{ total_shares }} shares</option>
                 {% endfor %}
             </select>
         </div>

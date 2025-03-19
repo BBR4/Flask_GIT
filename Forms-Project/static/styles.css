@@ -4,6 +4,11 @@ body {
     color: white; /* Makes text readable */
 }
 
+/* Ensure the main content pushes the footer to the bottom */
+main {
+    flex: 1;
+}
+
 /* Set a slightly darker background for the navbar */
 .navbar {
     background-color: #1a093c !important; /* Darker navbar */

@@ -5,7 +5,15 @@
 {% block content %}
 <div class="container mt-5">
     <h2>Buy Stocks</h2>
-    <form method="POST">
+
+    <!-- JavaScript for Confirmation Alert -->
+    <script>
+        function confirmPurchase() {
+            return confirm("Are you sure you want to buy this stock?");
+        }
+    </script>
+
+    <form method="POST" onsubmit="return confirmPurchase();">
         <div class="mb-3">
             <label for="stock_id" class="form-label">Select Stock</label>
             <select class="form-control" id="stock_id" name="stock_id" required>

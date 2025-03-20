@@ -3,12 +3,14 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_bcrypt import Bcrypt
 from functools import wraps
+from flask_apscheduler import APScheduler
+import random
 
 # Initialize Flask app
 app = Flask(__name__)
 
 # Database Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:Josrub123@localhost/stox'  
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root@localhost/stox'  
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  
 app.config['SECRET_KEY'] = 'your-secret-key'  
 
@@ -18,6 +20,11 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"  
 bcrypt = Bcrypt(app)
+
+# ✅ Initialize APScheduler
+scheduler = APScheduler()
+scheduler.init_app(app)
+scheduler.start()
 
 # Unified User Model (table name: users)
 class Users(UserMixin, db.Model):
@@ -54,6 +61,35 @@ class Stocks(db.Model):
 
     def update_market_cap(self):
         self.market_cap = self.volume * self.current_price
+
+    def fluctuate_price(self):
+        #Simulate random stock price movement within ±2% 
+        change_percentage = random.uniform(-2, 2) / 100  # Price changes within ±2%
+        new_price = round(self.current_price * (1 + change_percentage), 2)
+
+        # Ensure new price stays within a reasonable range
+        if new_price < (self.opening_price * 0.5):  
+            new_price = round(self.opening_price * 0.5, 2)
+        elif new_price > (self.opening_price * 1.5):  
+            new_price = round(self.opening_price * 1.5, 2)
+
+        self.current_price = new_price
+        self.update_market_cap()
+   
+def update_stock_prices():
+    #Update stock prices randomly every 10 seconds
+    with app.app_context():
+        stocks = Stocks.query.all()
+        for stock in stocks:
+            stock.fluctuate_price()
+        db.session.commit()
+        print("✅ Stock prices updated.")
+
+# Schedule the price update function to run every 10 seconds
+scheduler.add_job(id='Stock Price Update', func=update_stock_prices, trigger='interval', seconds=10)
+
+with app.app_context():
+    db.create_all()
 
 class Transactions(db.Model):
     __tablename__ = 'transactions'

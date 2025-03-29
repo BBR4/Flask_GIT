@@ -4,13 +4,15 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from flask_bcrypt import Bcrypt
 from functools import wraps
 from flask_apscheduler import APScheduler
+from datetime import datetime, time 
 import random
+import holidays
 
 # Initialize Flask app
 app = Flask(__name__)
 
 # Database Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root@localhost/stox'  
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:Josrub123@localhost/stox'  
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  
 app.config['SECRET_KEY'] = 'your-secret-key'  
 
@@ -341,6 +343,11 @@ def delete_stock(stock_id):
 @app.route('/buy-stock', methods=['GET', 'POST'])
 @login_required
 def buy_stock():
+    # Check if market is open before proceeding
+    if not is_market_open():
+        flash("The market is closed. You can only buy stocks during market hours.", "danger")
+        return redirect(url_for("portfolio"))
+    
     stocks = Stocks.query.all()  # Get all available stocks
 
     if request.method == 'POST':
@@ -387,9 +394,15 @@ def buy_stock():
 
     return render_template("buy_stock.html", stocks=stocks)
 
+
 @app.route('/sell-stock', methods=['GET', 'POST'])
 @login_required
 def sell_stock():
+    # Check if market is open before proceeding
+    if not is_market_open():
+        flash("The market is closed. You can only sell stocks during market hours.", "danger")
+        return redirect(url_for("portfolio"))
+    
     # Get user's owned stocks (net quantity: buy - sell)
     owned_stocks = db.session.query(
         Stocks.id, Stocks.ticker, Stocks.company_name,
@@ -442,7 +455,41 @@ def sell_stock():
 
     return render_template("sell_stock.html", owned_stocks=owned_stocks)
 
+# US holidays
+us_holidays = holidays.US()
 
+def is_market_open():
+    """Check if the market is open (Mon-Fri, 9:30 AM - 4:00 PM, excluding holidays)."""
+    now = datetime.now()
+    
+    # Check weekday (0=Monday, 4=Friday)
+    if now.weekday() >= 5:
+        return False
+
+    # Check if today is a holiday
+    if now.date() in us_holidays:
+        return False
+    
+    # Check market hours
+    market_open = time(9, 30)
+    market_close = time(16, 0)
+
+    return market_open <= now.time() <= market_close
+
+@app.route('/')
+def index():
+    market_status = "Open" if is_market_open() else "Closed"
+    return render_template('index.html', market_status=market_status)
+
+@app.route('/trade', methods=['POST'])
+def trade():
+    if not is_market_open():
+        flash("Market is closed. Trading is only allowed during market hours.", "warning")
+        return redirect(url_for('index'))
+
+    # Example trading logic (replace with your actual logic)
+    flash("Trade executed successfully!", "success")
+    return redirect(url_for('index'))
 
 with app.app_context():
     db.create_all()

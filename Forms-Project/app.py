@@ -114,7 +114,7 @@ class CashAccounts(db.Model):
 
     user = db.relationship('Users', backref='cash_account')
 
-# ========================== TRANSACTION HISTORY ROUTE ==========================
+# ========================== TRANSACTION HISTORY ROUTE ===========================
 
 @app.route('/transactions')
 @login_required

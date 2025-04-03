@@ -114,7 +114,7 @@ class CashAccounts(db.Model):
 
     user = db.relationship('Users', backref='cash_account')
 
-# ========================== TRANSACTION HISTORY ROUTE ==========================
+# ========================== TRANSACTION HISTORY ROUTE ===========================
 
 @app.route('/transactions')
 @login_required
@@ -466,7 +466,7 @@ def is_market_open():
     if now.weekday() >= 5:
         return False
 
-    # Check if today is a holidaye
+    # Check if today is a holiday
     if now.date() in us_holidays:
         return False
     

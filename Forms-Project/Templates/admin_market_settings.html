@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Market Settings{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Market Settings</h2>
+    <form method="POST">
+        <div class="mb-3">
+            <label for="open_time" class="form-label">Market Open Time</label>
+            <input type="time" class="form-control" id="open_time" name="open_time" value="{{ settings.open_time.strftime('%H:%M') if settings.open_time else '09:30' }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="close_time" class="form-label">Market Close Time</label>
+            <input type="time" class="form-control" id="close_time" name="close_time" value="{{ settings.close_time.strftime('%H:%M') if settings.close_time else '16:00' }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="holidays" class="form-label">Holidays (comma-separated YYYY-MM-DD)</label>
+            <input type="text" class="form-control" id="holidays" name="holidays" value="{{ settings.holidays or '' }}">
+        </div>
+        <button type="submit" class="btn btn-primary">Save Settings</button>
+    </form>
+</div>
+{% endblock %}

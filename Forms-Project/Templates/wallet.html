@@ -6,8 +6,9 @@
 <div class="container mt-5">
     <h2>Your Wallet</h2>
     <p>Current Balance: <strong>${{ balance }}</strong></p>
-  <!-- wtf dude-->
-    <form method="POST">
+
+
+    <form method="POST" onsubmit="return confirmTransaction(event)">
         <div class="mb-3">
             <label for="amount" class="form-label">Enter Amount</label>
             <input type="number" class="form-control" id="amount" name="amount" min="1" required>
@@ -16,4 +17,21 @@
         <button type="submit" name="action" value="withdraw" class="btn btn-danger">Withdraw</button>
     </form>
 </div>
+
+<!-- JavaScript for Confirmation Prompt -->
+<script>
+    function confirmTransaction(event) {
+        let amount = document.getElementById("amount").value;
+        let action = event.submitter.value;  // Identifies whether it's "deposit" or "withdraw"
+
+        if (amount <= 0) {
+            alert("Please enter a valid amount.");
+            return false;
+        }
+
+        let confirmation = confirm(`Are you sure you want to ${action} $${amount}?`);
+        return confirmation;  // If "Cancel" is clicked, form submission is prevented
+    }
+</script>
+
 {% endblock %}

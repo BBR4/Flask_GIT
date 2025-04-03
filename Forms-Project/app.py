@@ -470,9 +470,9 @@ def is_market_open():
     if now.date() in us_holidays:
         return False  # Market is closed on holidays
 
-    # Define market open and close times in Eastern Time
-    market_open = time(9, 30)  # Market opens at 9:30 AM ET
-    market_close = time(16, 0)  # Market closes at 4:00 PM ET
+    # Define market open and close times
+    market_open = time(9, 30)  # Market opens at 9:30 AM
+    market_close = time(16, 0)  # Market closes at 4:00 PM
 
     # Check if the current time falls within market hours
     return market_open <= now.time() <= market_close

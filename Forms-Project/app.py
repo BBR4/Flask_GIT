@@ -459,8 +459,8 @@ def sell_stock():
 us_holidays = holidays.US()
 
 def is_market_open():
-    """Check if the stock market is open (Monday-Friday, 9:30 AM - 4:00 PM ET, excluding holidays)."""
-    now = datetime.now()  # Get current date and time
+    """Check if the stock market is open (Monday-Friday, 9:30 AM - 4:00 PM , excluding holidays)."""
+    now = datetime.now()  # Get current date and time lamoS
 
     # Check if today is a weekend (Saturday=5, Sunday=6)
     if now.weekday() >= 5:
@@ -490,7 +490,7 @@ def trade():
         flash("Market is closed. Trading is only allowed during market hours.", "warning")  # Flash warning if closed
         return redirect(url_for('index'))  # Redirect back to homepage
 
-    # Placeholder for executing trade logic (could involve database updates, API calls, etc.)
+    # Placeholder for executing trade logic 
     flash("Trade executed successfully!", "success")  # Confirm successful trade
     return redirect(url_for('index'))  # Redirect back to homepage
 

@@ -124,6 +124,11 @@ def transactions():
     user_transactions = Transactions.query.filter_by(user_id=current_user.id).all()
     return render_template("transactions.html", transactions=user_transactions)
 
+
+@app.route('/market-settings')
+def market_settings():
+    return render_template('market_settings.html')
+
 # ========================== USER WALLET MANAGEMENT ==========================
 
 @app.route('/wallet', methods=['GET', 'POST'])

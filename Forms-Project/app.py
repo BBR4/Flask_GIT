@@ -10,9 +10,11 @@ import holidays
 
 # Initialize Flask app
 app = Flask(__name__)
-
+#password for dah ting
+#lQYK4bfoqwWJovLSYfF8
 # Database Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:Josrub123@localhost/stox'  
+app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://admin:lQYK4bfoqwWJovLSYfF8@my-rds-instance-1.clk62ieqgy2z.us-east-2.rds.amazonaws.com:3306/sample_db'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  
 app.config['SECRET_KEY'] = 'your-secret-key'  
 

@@ -77,7 +77,17 @@ class Stocks(db.Model):
 
         self.current_price = new_price
         self.update_market_cap()
-   
+
+class MarketSettings(db.Model):
+    __tablename__ = 'market_settings'
+    id = db.Column(db.Integer, primary_key=True)
+    open_time = db.Column(db.Time, default=time(9, 30))
+    close_time = db.Column(db.Time, default=time(16, 0))
+    holidays = db.Column(db.Text, default='')  # Comma-separated YYYY-MM-DD format
+    weekend_closed = db.Column(db.Boolean, default=True)
+    holiday_closed = db.Column(db.Boolean, default=True)
+
+
 def update_stock_prices():
     #Update stock prices randomly every 10 seconds
     with app.app_context():
@@ -90,8 +100,24 @@ def update_stock_prices():
 # Schedule the price update function to run every 10 seconds
 scheduler.add_job(id='Stock Price Update', func=update_stock_prices, trigger='interval', seconds=10)
 
+
+def create_default_market_settings():
+    if not MarketSettings.query.first():
+        default = MarketSettings()
+        db.session.add(default)
+        db.session.commit()
+        
 with app.app_context():
     db.create_all()
+    create_default_market_settings()
+    if not Users.query.filter_by(username="admin").first():
+        hashed_password = bcrypt.generate_password_hash("admin123").decode('utf-8')
+        admin = Users(username="admin", password=hashed_password, role="admin")
+        db.session.add(admin)
+        db.session.commit()
+        print("✅ Admin account created: Username: admin | Password: admin123")
+
+
 
 class Transactions(db.Model):
     __tablename__ = 'transactions'
@@ -113,6 +139,66 @@ class CashAccounts(db.Model):
     balance = db.Column(db.Float, default=0.0, nullable=False)
 
     user = db.relationship('Users', backref='cash_account')
+
+@app.route('/admin/market-settings', methods=["GET", "POST"])
+@login_required
+@admin_required
+def market_settings():
+    settings = MarketSettings.query.first()
+
+    # If no settings exist yet, create a default one
+    if not settings:
+        settings = MarketSettings(open_time=time(9, 30), close_time=time(16, 0), holidays="")
+        db.session.add(settings)
+        db.session.commit()
+
+    if request.method == "POST":
+        try:
+            open_time_str = request.form.get('open_time')
+            close_time_str = request.form.get('close_time')
+            holidays_input = request.form.get('holidays', '')
+
+            if not open_time_str or not close_time_str:
+                flash("Please fill in both open and close times.", "danger")
+                return redirect(url_for("market_settings"))
+
+            open_time = datetime.strptime(open_time_str, "%H:%M").time()
+            close_time = datetime.strptime(close_time_str, "%H:%M").time()
+
+            settings.open_time = open_time
+            settings.close_time = close_time
+            settings.holidays = holidays_input
+
+            db.session.commit()
+            flash("✅ Market settings updated!", "success")
+        except Exception as e:
+            print("Error updating settings:", e)
+            flash("❌ Something went wrong. Please check your input format.", "danger")
+
+        return redirect(url_for("market_settings"))
+
+    return render_template("admin_market_settings.html", settings=settings)
+
+def is_market_open():
+    settings = MarketSettings.query.first()
+    now = datetime.now()
+
+    # Check for weekend closure
+    if settings and settings.weekend_closed and now.weekday() >= 5:
+        return False
+
+    # Check for holiday closure
+    if settings and settings.holiday_closed:
+        holiday_list = settings.holidays.split(',') if settings.holidays else []
+        today = now.strftime('%Y-%m-%d')
+        if today in holiday_list:
+            return False
+
+    # Check market hours
+    return settings.open_time <= now.time() <= settings.close_time
+
+
+
 
 # ========================== TRANSACTION HISTORY ROUTE ===========================
 
@@ -455,27 +541,6 @@ def sell_stock():
 
     return render_template("sell_stock.html", owned_stocks=owned_stocks)
 
-# US holidays
-us_holidays = holidays.US()
-
-def is_market_open():
-    """Check if the market is open (Mon-Fri, 9:30 AM - 4:00 PM, excluding holidays)."""
-    now = datetime.now()
-    
-    # Check weekday (0=Monday, 4=Friday)
-    if now.weekday() >= 5:
-        return False
-
-    # Check if today is a holiday
-    if now.date() in us_holidays:
-        return False
-    
-    # Check market hours
-    market_open = time(9, 30)
-    market_close = time(16, 0)
-
-    return market_open <= now.time() <= market_close
-
 @app.route('/')
 def index():
     market_status = "Open" if is_market_open() else "Closed"
@@ -490,6 +555,15 @@ def trade():
     # Example trading logic (replace with your actual logic)
     flash("Trade executed successfully!", "success")
     return redirect(url_for('index'))
+
+@app.context_processor
+def inject_market_status():
+    now = datetime.now().strftime("%H:%M:%S")
+    return {
+        "current_time": now,
+        "market_status": is_market_open()
+    }
+
 
 with app.app_context():
     db.create_all()

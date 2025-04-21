@@ -7,12 +7,14 @@ from flask_apscheduler import APScheduler
 from datetime import datetime, time 
 import random
 import holidays
-
+#cgage
 # Initialize Flask app
 app = Flask(__name__)
-
+#password for dah ting
+#lQYK4bfoqwWJovLSYfF8
 # Database Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root@localhost/stox'  
+app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://admin:lQYK4bfoqwWJovLSYfF8@my-rds-instance-1.clk62ieqgy2z.us-east-2.rds.amazonaws.com:3306/sample_db'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  
 app.config['SECRET_KEY'] = 'your-secret-key'  
 
@@ -207,6 +209,11 @@ def is_market_open():
 def transactions():
     user_transactions = Transactions.query.filter_by(user_id=current_user.id).all()
     return render_template("transactions.html", transactions=user_transactions)
+
+
+@app.route('/market-settings')
+def market_settings():
+    return render_template('market_settings.html')
 
 # ========================== USER WALLET MANAGEMENT ==========================
 

@@ -213,7 +213,7 @@ def transactions():
 
 @app.route('/market-settings')
 def market_settings():
-    return render_template('market_settings.html')
+    return render_template('admin_market_settings.html')
 
 # ========================== USER WALLET MANAGEMENT ==========================
 

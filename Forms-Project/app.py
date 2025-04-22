@@ -462,25 +462,8 @@ def sell_stock():
 
     return render_template("sell_stock.html", owned_stocks=owned_stocks)
 
-# US holidays
-#us_holidays = holidays.US()
-
 def is_market_open():
-    return True  # Force market to be open for testing
-
-    # Check weekday (0=Monday, 4=Friday)
-   # if now.weekday() >= 5:
-   #     return False
-
-    # Check if today is a holiday
-    #if now.date() in us_holidays:
-    #    return False
-    
-    # Check market hours
-   # market_open = time(9, 30)
-   # market_close = time(16, 0)
-
-   # return market_open <= now.time() <= market_close
+    return True  # ✅ Always open for testing
 
 @app.route('/')
 def index():

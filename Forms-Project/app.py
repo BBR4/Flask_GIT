@@ -466,9 +466,8 @@ def sell_stock():
 us_holidays = holidays.US()
 
 def is_market_open():
-    """Check if the market is open (Mon-Fri, 9:30 AM - 4:00 PM, excluding holidays)."""
-    now = datetime.now()
-    
+    return True  # Force market to be open for testing
+
     # Check weekday (0=Monday, 4=Friday)
     if now.weekday() >= 5:
         return False

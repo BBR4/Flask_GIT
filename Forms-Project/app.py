@@ -6,7 +6,7 @@ from functools import wraps
 from flask_apscheduler import APScheduler
 from datetime import datetime, time 
 import random
-import holidays
+#import holidays
 #cgage
 # Initialize Flask app
 app = Flask(__name__)

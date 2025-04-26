@@ -37,6 +37,7 @@ class Users(UserMixin, db.Model):
     username = db.Column(db.String(250), unique=True, nullable=False)  
     password = db.Column(db.String(250), nullable=False)  # Hashed passwords stored securely
     role = db.Column(db.String(50), default="user", nullable=False)  # "user" or "admin"
+    
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -125,9 +126,51 @@ def transactions():
     return render_template("transactions.html", transactions=user_transactions)
 
 
-@app.route('/market-settings')
+@app.route('/market-settings', methods=['GET', 'POST'])
+@login_required
+@admin_required
 def market_settings():
-    return render_template('market_settings.html')
+    settings = MarketSettings.query.first()
+
+    # Create settings if missing
+    if not settings:
+        settings = MarketSettings(
+            open_time=time(9, 30),
+            close_time=time(16, 0),
+            holidays=",".join(default_holidays_2025),
+            force_open=False,
+            force_close=False
+        )
+        db.session.add(settings)
+        db.session.commit()
+
+    if request.method == 'POST':
+        open_time = request.form.get('open_time')
+        close_time = request.form.get('close_time')
+        holidays = request.form.get('holidays')
+
+        settings.open_time = datetime.strptime(open_time, '%H:%M').time()
+        settings.close_time = datetime.strptime(close_time, '%H:%M').time()
+        settings.holidays = holidays
+
+        # Handle force open/close buttons
+        if 'force_open' in request.form:
+            settings.force_open = True
+            settings.force_close = False
+        elif 'force_close' in request.form:
+            settings.force_open = False
+            settings.force_close = True
+        elif 'reset' in request.form:
+            settings.force_open = False
+            settings.force_close = False
+
+        db.session.commit()
+        flash('✅ Market settings updated.', 'success')
+        return redirect(url_for('market_settings'))
+
+        
+    return render_template('market_settings.html', settings=settings)
+
 
 # ========================== USER WALLET MANAGEMENT ==========================
 
@@ -173,7 +216,7 @@ def home():
 @app.route('/portfolio')
 @login_required
 def portfolio():
-    # Calculate user's net owned shares (Buy - Sell)
+    # Get all stocks the user owns
     user_transactions = db.session.query(
         Stocks.ticker, Stocks.company_name,
         db.func.sum(Transactions.quantity).label('total_shares'),
@@ -182,7 +225,26 @@ def portfolio():
         Transactions.user_id == current_user.id
     ).group_by(Stocks.id).having(db.func.sum(Transactions.quantity) > 0).all()
 
-    return render_template("portfolio.html", stocks=user_transactions)
+    # Get user's wallet balance
+    cash_account = CashAccounts.query.filter_by(user_id=current_user.id).first()
+    wallet_balance = cash_account.balance if cash_account else 0.0
+
+    # Calculate total stock value
+    stock_value_total = 0
+    for stock in user_transactions:
+        stock_value_total += float(stock.total_shares) * float(stock.current_price)
+
+
+    # Calculate total net worth
+    net_worth = wallet_balance + stock_value_total
+
+    return render_template(
+        "portfolio.html",
+        stocks=user_transactions,
+        wallet_balance=wallet_balance,
+        stock_value_total=stock_value_total,
+        net_worth=net_worth
+    )
 
 @app.route('/about')
 def about():
@@ -350,18 +412,16 @@ def delete_stock(stock_id):
 @app.route('/buy-stock', methods=['GET', 'POST'])
 @login_required
 def buy_stock():
-    # Check if market is open before proceeding
     if not is_market_open():
         flash("The market is closed. You can only buy stocks during market hours.", "danger")
         return redirect(url_for("portfolio"))
-    
-    stocks = Stocks.query.all()  # Get all available stocks
+
+    stocks = Stocks.query.all()
 
     if request.method == 'POST':
         stock_id = int(request.form.get('stock_id'))
         quantity = int(request.form.get('quantity'))
 
-        # Look up stock
         stock = Stocks.query.get(stock_id)
         if not stock:
             flash("Stock not found!", "danger")
@@ -369,23 +429,35 @@ def buy_stock():
 
         total_cost = stock.current_price * quantity
 
-        # Check if user has enough cash
         cash_account = CashAccounts.query.filter_by(user_id=current_user.id).first()
         if not cash_account or cash_account.balance < total_cost:
             flash("Insufficient funds!", "danger")
             return redirect(url_for("buy_stock"))
 
-        # Check if stock has enough volume available
         if stock.volume < quantity:
             flash("Not enough stock available!", "danger")
             return redirect(url_for("buy_stock"))
 
-        # Perform transaction
-        cash_account.balance -= total_cost  # Deduct from user's cash balance
-        stock.volume -= quantity  # Reduce available stock volume
-        stock.update_market_cap()  # Update stock market cap
+        # Save old balances before transaction
+        old_wallet_balance = cash_account.balance
 
-        # Record transaction
+        owned_stocks = db.session.query(
+            Stocks.current_price, db.func.sum(Transactions.quantity).label('total_shares')
+        ).join(Transactions).filter(
+            Transactions.user_id == current_user.id
+        ).group_by(Stocks.id).all()
+
+        old_stock_value_total = 0
+        for stock_price, total_shares in owned_stocks:
+            old_stock_value_total += float(stock_price) * float(total_shares)
+
+        old_net_worth = old_wallet_balance + old_stock_value_total
+
+        # Perform transaction
+        cash_account.balance -= total_cost
+        stock.volume -= quantity
+        stock.update_market_cap()
+
         transaction = Transactions(
             user_id=current_user.id,
             stock_id=stock.id,
@@ -396,21 +468,37 @@ def buy_stock():
         db.session.add(transaction)
         db.session.commit()
 
-        flash(f"Successfully bought {quantity} shares of {stock.ticker}!", "success")
+        # After transaction - calculate updated wallet and net worth
+        updated_wallet_balance = cash_account.balance
+
+        owned_stocks = db.session.query(
+            Stocks.current_price, db.func.sum(Transactions.quantity).label('total_shares')
+        ).join(Transactions).filter(
+            Transactions.user_id == current_user.id
+        ).group_by(Stocks.id).all()
+
+        new_stock_value_total = 0
+        for stock_price, total_shares in owned_stocks:
+            new_stock_value_total += float(stock_price) * float(total_shares)
+
+        new_net_worth = updated_wallet_balance + new_stock_value_total
+
+        # Flash messages
+        flash(f"✅ Bought {quantity} shares of {stock.ticker} for -${total_cost:.2f}", "success")
+        flash(f"💵 Wallet Balance: ${old_wallet_balance:.2f} ➔ ${updated_wallet_balance:.2f}", "info")
+
+
         return redirect(url_for("portfolio"))
 
     return render_template("buy_stock.html", stocks=stocks)
 
-
 @app.route('/sell-stock', methods=['GET', 'POST'])
 @login_required
 def sell_stock():
-    # Check if market is open before proceeding
     if not is_market_open():
         flash("The market is closed. You can only sell stocks during market hours.", "danger")
         return redirect(url_for("portfolio"))
-    
-    # Get user's owned stocks (net quantity: buy - sell)
+
     owned_stocks = db.session.query(
         Stocks.id, Stocks.ticker, Stocks.company_name,
         db.func.sum(Transactions.quantity).label('total_shares')
@@ -422,42 +510,75 @@ def sell_stock():
         stock_id = int(request.form.get('stock_id'))
         quantity = int(request.form.get('quantity'))
 
-        # Get stock info
         stock = Stocks.query.get(stock_id)
         if not stock:
             flash("Stock not found!", "danger")
             return redirect(url_for("sell_stock"))
 
-        # Get user's available shares for the selected stock
         user_shares = db.session.query(
             db.func.sum(Transactions.quantity)
         ).filter(
             Transactions.user_id == current_user.id,
             Transactions.stock_id == stock_id
-        ).scalar() or 0  # Default to 0 if no shares
+        ).scalar() or 0
 
         if user_shares < quantity:
             flash("You don't have enough shares to sell!", "danger")
             return redirect(url_for("sell_stock"))
 
-        # Perform sale
         cash_account = CashAccounts.query.filter_by(user_id=current_user.id).first()
-        cash_account.balance += stock.current_price * quantity  # Add money to user balance
-        stock.volume += quantity  # Return stock volume to the market
+        cash_gain = stock.current_price * quantity
+
+        # Save old balances before transaction
+        old_wallet_balance = cash_account.balance
+
+        owned_stocks = db.session.query(
+            Stocks.current_price, db.func.sum(Transactions.quantity).label('total_shares')
+        ).join(Transactions).filter(
+            Transactions.user_id == current_user.id
+        ).group_by(Stocks.id).all()
+
+        old_stock_value_total = 0
+        for stock_price, total_shares in owned_stocks:
+            old_stock_value_total += float(stock_price) * float(total_shares)
+
+        old_net_worth = old_wallet_balance + old_stock_value_total
+
+        # Perform sale
+        cash_account.balance += cash_gain
+        stock.volume += quantity
         stock.update_market_cap()
 
-        # Record transaction
         transaction = Transactions(
             user_id=current_user.id,
             stock_id=stock.id,
-            quantity=-quantity,  # Negative quantity to represent selling
+            quantity=-quantity,
             price_at_trade=stock.current_price,
             transaction_type="sell"
         )
         db.session.add(transaction)
         db.session.commit()
 
-        flash(f"Successfully sold {quantity} shares of {stock.ticker}!", "success")
+        # After transaction - calculate updated wallet and net worth
+        updated_wallet_balance = cash_account.balance
+
+        owned_stocks = db.session.query(
+            Stocks.current_price, db.func.sum(Transactions.quantity).label('total_shares')
+        ).join(Transactions).filter(
+            Transactions.user_id == current_user.id
+        ).group_by(Stocks.id).all()
+
+        new_stock_value_total = 0
+        for stock_price, total_shares in owned_stocks:
+            new_stock_value_total += float(stock_price) * float(total_shares)
+
+        new_net_worth = updated_wallet_balance + new_stock_value_total
+
+        # Flash messages
+        flash(f"✅ Sold {quantity} shares of {stock.ticker} for +${cash_gain:.2f}", "success")
+        flash(f"💵 Wallet Balance: ${old_wallet_balance:.2f} ➔ ${updated_wallet_balance:.2f}", "info")
+
+
         return redirect(url_for("portfolio"))
 
     return render_template("sell_stock.html", owned_stocks=owned_stocks)
@@ -490,6 +611,9 @@ with app.app_context():
         db.session.add(admin)
         db.session.commit()
         print("✅ Admin account created: Username: admin | Password: admin123")
+        
+with app.app_context():
+    db.create_all()
 
 
 if __name__ == '__main__':

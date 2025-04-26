@@ -4,6 +4,16 @@
 
 {% block content %}
 <div class="container mt-5">
+
+    <div class="card text-white bg-dark mb-4">
+        <div class="card-body">
+            <h2 class="card-title">Portfolio Summary</h2>
+            <p class="card-text"><strong>Cash Balance:</strong> ${{ wallet_balance | round(2) }}</p>
+            <p class="card-text"><strong>Stock Holdings Value:</strong> ${{ stock_value_total | round(2) }}</p>
+            <p class="card-text"><strong>Total Net Worth:</strong> ${{ net_worth | round(2) }}</p>
+        </div>
+    </div>
+
     <h1 class="text-white">Your Stock Portfolio</h1>
     <p class="text-light">Here are the stocks you own:</p>
 

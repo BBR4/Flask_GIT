@@ -88,3 +88,45 @@ button:hover {
     font-size: 24px; /* Adjust size as needed */
     color: white; /* Ensure contrast */
 }
+
+
+#clock-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    font-size: 18px;
+    font-weight: bold;
+    color: white;
+    background: #343a40;
+    padding: 10px 0;
+}
+
+.status-open { color: #28a745; }
+.status-closed { color: #dc3545; }
+
+.flash-container {
+    margin-top: 20px;
+}
+
+.alert {
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 16px;
+    margin-bottom: 10px;
+}
+
+/* 🔥 Clean close button */
+.btn-close {
+    padding: 0.25rem;
+    background: none;
+    border: none;
+    box-shadow: none;
+    background-image: none; /* <-- This line is important to REMOVE the ugly X background */
+    opacity: 1; /* Makes the white X visible */
+}
+
+/* Optional: Make close button white */
+.btn-close::after {
+    color: white;
+}

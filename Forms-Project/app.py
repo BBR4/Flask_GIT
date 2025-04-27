@@ -197,7 +197,7 @@ def market_settings():
             # Combine them
             combined_holidays = existing_holidays.union(incoming_holidays)
 
-            # Save times and merged holidays
+            # Save times and merged holidays12
             settings.open_time = datetime.strptime(open_time, '%H:%M').time()
             settings.close_time = datetime.strptime(close_time, '%H:%M').time()
             settings.holidays = ",".join(sorted(combined_holidays))

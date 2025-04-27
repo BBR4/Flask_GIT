@@ -18,7 +18,27 @@
             <label for="holidays" class="form-label">Holidays (comma-separated YYYY-MM-DD)</label>
             <input type="text" class="form-control" id="holidays" name="holidays" value="{{ settings.holidays or '' }}">
         </div>
-        <button type="submit" class="btn btn-primary">Save Settings</button>
+
+        <div class="d-flex gap-2 mb-3">
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+            <button type="submit" name="force_open" class="btn btn-success">Force Open Market</button>
+            <button type="submit" name="force_close" class="btn btn-danger">Force Close Market</button>
+            <button type="submit" name="reset" class="btn btn-secondary">Reset Market</button>
+        </div>
+
+        {% if settings.force_open %}
+            <div class="alert alert-success mt-3">
+                Market is currently <strong>FORCED OPEN</strong>.
+            </div>
+        {% elif settings.force_close %}
+            <div class="alert alert-danger mt-3">
+                Market is currently <strong>FORCED CLOSED</strong>.
+            </div>
+        {% else %}
+            <div class="alert alert-info mt-3">
+                Market is operating under <strong>normal hours</strong>.
+            </div>
+        {% endif %}
     </form>
 </div>
 {% endblock %}

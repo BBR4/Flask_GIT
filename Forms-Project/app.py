@@ -177,7 +177,7 @@ def market_settings():
         flash('✅ Market settings updated.', 'success')
         return redirect(url_for('market_settings'))
 
-    return render_template('admin_market_settings.html', settings=settings)
+    return render_template('market_settings.html', settings=settings)
 #
 
 

@@ -710,7 +710,7 @@ with app.app_context():
         db.session.add(admin)
         db.session.commit()
         print("✅ Admin account created: Username: admin | Password: admin123")
-        
+#test     
 with app.app_context():
     db.create_all()
 

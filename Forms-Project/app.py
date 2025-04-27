@@ -130,11 +130,11 @@ def transactions():
 @login_required
 @admin_required
 def market_settings():
-    settings = MarketSettings.query.first()
+    settings = market_settings.query.first()
 
     # Create settings if missing
     if not settings:
-        settings = MarketSettings(
+        settings = market_settings(
             open_time=time(9, 30),
             close_time=time(16, 0),
             holidays=",".join(default_holidays_2025),
@@ -397,15 +397,18 @@ def update_stock(stock_id):
     return render_template("update_stock.html", stock=stock)
 
 
-# 🔹 Delete Stock (Admin Only)
 @app.route('/admin/stocks/delete/<int:stock_id>', methods=['POST'])
 @login_required
 @admin_required
 def delete_stock(stock_id):
     stock = Stocks.query.get_or_404(stock_id)
+    
+    # ✅ First delete related transactions
+    Transactions.query.filter_by(stock_id=stock.id).delete()
+
     db.session.delete(stock)
     db.session.commit()
-    flash(f"Stock {stock.ticker} deleted successfully!", "danger")
+    flash(f"Stock {stock.ticker} and related transactions deleted successfully!", "danger")
     return redirect(url_for("view_stocks"))
 
 

@@ -25,7 +25,9 @@
                 <td>{{ stock.volume }}</td>
                 <td>
                     <a href="{{ url_for('update_stock', stock_id=stock.id) }}" class="btn btn-warning btn-sm">Edit</a>
-                    <form method="POST" action="{{ url_for('delete_stock', stock_id=stock.id) }}" style="display:inline;">
+
+                    <!-- ✅ Added confirm popup here -->
+                    <form method="POST" action="{{ url_for('delete_stock', stock_id=stock.id) }}" style="display:inline;" onsubmit="return confirm('⚠️ Are you sure you want to delete {{ stock.ticker }}? This will also delete all related transactions!');">
                         <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                     </form>
                 </td>

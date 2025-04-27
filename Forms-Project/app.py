@@ -150,6 +150,12 @@ def is_market_open():
         else:
             return False
 
+@app.context_processor
+def inject_market_status():
+    return {
+        'current_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'market_status': is_market_open()
+    }
 
 
 # ========================== TRANSACTION HISTORY ROUTE ===========================
@@ -179,30 +185,66 @@ def market_settings():
         db.session.commit()
 
     if request.method == 'POST':
-        open_time = request.form.get('open_time')
-        close_time = request.form.get('close_time')
-        holidays = request.form.get('holidays')
+        if 'save_settings' in request.form:
+            open_time = request.form.get('open_time')
+            close_time = request.form.get('close_time')
+            new_holidays = request.form.get('holidays')
 
-        settings.open_time = datetime.strptime(open_time, '%H:%M').time()
-        settings.close_time = datetime.strptime(close_time, '%H:%M').time()
-        settings.holidays = holidays
+            # Split existing and new holidays
+            existing_holidays = set([h.strip() for h in (settings.holidays or "").split(',') if h.strip()])
+            incoming_holidays = set([h.strip() for h in new_holidays.split(',') if h.strip()])
 
-        if 'force_open' in request.form:
+            # Combine them
+            combined_holidays = existing_holidays.union(incoming_holidays)
+
+            # Save times and merged holidays
+            settings.open_time = datetime.strptime(open_time, '%H:%M').time()
+            settings.close_time = datetime.strptime(close_time, '%H:%M').time()
+            settings.holidays = ",".join(sorted(combined_holidays))
+
+            settings.force_open = False
+            settings.force_close = False
+            flash('✅ Settings saved successfully.', 'success')
+
+        elif 'force_open' in request.form:
             settings.force_open = True
             settings.force_close = False
+            flash('✅ Market forced open.', 'success')
+
         elif 'force_close' in request.form:
             settings.force_open = False
             settings.force_close = True
+            flash('✅ Market forced closed.', 'success')
+
         elif 'reset' in request.form:
             settings.force_open = False
             settings.force_close = False
+            flash('✅ Market behavior reset to normal.', 'success')
 
         db.session.commit()
-        flash('✅ Market settings updated.', 'success')
         return redirect(url_for('market_settings'))
 
-    return render_template('market_settings.html', settings=settings)
+    # Return page
+    today = datetime.now().strftime("%Y-%m-%d")
+    is_holiday_today = False
+    holiday_name = None
 
+    if settings.holidays:
+        holidays_list = [h.strip() for h in settings.holidays.split(',') if h.strip()]
+        if today in holidays_list:
+            is_holiday_today = True
+            holiday_name = "Holiday"
+
+    market_is_open = is_market_open()
+
+    return render_template(
+        'market_settings.html',
+        settings=settings,
+        today=today,
+        is_holiday_today=is_holiday_today,
+        holiday_name=holiday_name,
+        market_is_open=market_is_open
+    )
 
 
 # ========================== USER WALLET MANAGEMENT ==========================
@@ -633,6 +675,30 @@ def trade():
     # Example trading logic (replace with your actual logic)
     flash("Trade executed successfully!", "success")
     return redirect(url_for('index'))
+
+@app.route('/delete-holiday', methods=['POST'])
+@login_required
+@admin_required
+def delete_holiday():
+    settings = MarketSettings.query.first()
+    if not settings:
+        flash('No settings found.', 'danger')
+        return redirect(url_for('market_settings'))
+
+    holiday_to_delete = request.form.get('holiday_to_delete')
+
+    if settings.holidays:
+        holidays_list = [h.strip() for h in settings.holidays.split(',') if h.strip()]
+        if holiday_to_delete in holidays_list:
+            holidays_list.remove(holiday_to_delete)
+            settings.holidays = ",".join(holidays_list)
+            db.session.commit()
+            flash(f"✅ Holiday {holiday_to_delete} removed.", "success")
+        else:
+            flash("Holiday not found.", "warning")
+
+    return redirect(url_for('market_settings'))
+
 
 with app.app_context():
     db.create_all()

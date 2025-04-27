@@ -117,6 +117,41 @@ class CashAccounts(db.Model):
 
     user = db.relationship('Users', backref='cash_account')
 
+class MarketSettings(db.Model):
+    __tablename__ = 'market_settings'
+    id = db.Column(db.Integer, primary_key=True)
+    open_time = db.Column(db.Time, nullable=False, default=time(9, 30))  # 9:30 AM
+    close_time = db.Column(db.Time, nullable=False, default=time(16, 0))  # 4:00 PM
+    holidays = db.Column(db.Text, nullable=True)
+    force_open = db.Column(db.Boolean, default=False)
+    force_close = db.Column(db.Boolean, default=False)
+
+
+def is_market_open():
+    with app.app_context():
+        settings = MarketSettings.query.first()
+        if not settings:
+            return True
+
+        if settings.force_open:
+            return True
+        if settings.force_close:
+            return False
+
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        if settings.holidays:
+            holidays_list = [h.strip() for h in settings.holidays.split(',') if h.strip()]
+            if today_str in holidays_list:
+                return False
+
+        now_time = datetime.now().time()
+        if settings.open_time <= now_time <= settings.close_time:
+            return True
+        else:
+            return False
+
+
+
 # ========================== TRANSACTION HISTORY ROUTE ===========================
 
 @app.route('/transactions')
@@ -130,14 +165,13 @@ def transactions():
 @login_required
 @admin_required
 def market_settings():
-    settings = market_settings.query.first()
+    settings = MarketSettings.query.first()
 
-    # Create settings if missing
     if not settings:
-        settings = market_settings(
+        settings = MarketSettings(
             open_time=time(9, 30),
             close_time=time(16, 0),
-            holidays=",".join(default_holidays_2025),
+            holidays="2025-01-01,2025-07-04,2025-11-27,2025-12-25",
             force_open=False,
             force_close=False
         )
@@ -153,7 +187,6 @@ def market_settings():
         settings.close_time = datetime.strptime(close_time, '%H:%M').time()
         settings.holidays = holidays
 
-        # Handle force open/close buttons
         if 'force_open' in request.form:
             settings.force_open = True
             settings.force_close = False
@@ -168,8 +201,8 @@ def market_settings():
         flash('✅ Market settings updated.', 'success')
         return redirect(url_for('market_settings'))
 
-        
     return render_template('market_settings.html', settings=settings)
+
 
 
 # ========================== USER WALLET MANAGEMENT ==========================
@@ -585,9 +618,6 @@ def sell_stock():
         return redirect(url_for("portfolio"))
 
     return render_template("sell_stock.html", owned_stocks=owned_stocks)
-
-def is_market_open():
-    return True  # ✅ Always open for testing
 
 @app.route('/')
 def index():

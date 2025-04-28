@@ -489,13 +489,15 @@ def delete_stock(stock_id):
 
 @app.route('/buy-stock', methods=['GET', 'POST'])
 @login_required
+@app.route('/buy-stock', methods=['GET', 'POST'])
+@login_required
 def buy_stock():
     if not is_market_open():
         flash("The market is closed. You can only buy stocks during market hours.", "danger")
         return redirect(url_for("portfolio"))
 
     stocks = Stocks.query.all()
-
+    
     if request.method == 'POST':
         stock_id = int(request.form.get('stock_id'))
         quantity = int(request.form.get('quantity'))
@@ -565,10 +567,29 @@ def buy_stock():
         flash(f"✅ Bought {quantity} shares of {stock.ticker} for -${total_cost:.2f}", "success")
         flash(f"💵 Wallet Balance: ${old_wallet_balance:.2f} ➔ ${updated_wallet_balance:.2f}", "info")
 
-
         return redirect(url_for("portfolio"))
 
-    return render_template("buy_stock.html", stocks=stocks)
+    # ---------------------
+    # NEW PART: calculate portfolio summary for GET
+    cash_account = CashAccounts.query.filter_by(user_id=current_user.id).first()
+    wallet_balance = cash_account.balance if cash_account else 0
+
+    owned_stocks = db.session.query(
+        Stocks.current_price, db.func.sum(Transactions.quantity).label('total_shares')
+    ).join(Transactions).filter(
+        Transactions.user_id == current_user.id
+    ).group_by(Stocks.id).all()
+
+    stock_value_total = sum(float(stock_price) * float(total_shares) for stock_price, total_shares in owned_stocks)
+    net_worth = wallet_balance + stock_value_total
+    # ---------------------
+
+    return render_template("buy_stock.html", 
+                           stocks=stocks,
+                           wallet_balance=wallet_balance, 
+                           stock_value_total=stock_value_total, 
+                           net_worth=net_worth)
+
 
 @app.route('/sell-stock', methods=['GET', 'POST'])
 @login_required
@@ -656,10 +677,29 @@ def sell_stock():
         flash(f"✅ Sold {quantity} shares of {stock.ticker} for +${cash_gain:.2f}", "success")
         flash(f"💵 Wallet Balance: ${old_wallet_balance:.2f} ➔ ${updated_wallet_balance:.2f}", "info")
 
-
         return redirect(url_for("portfolio"))
 
-    return render_template("sell_stock.html", owned_stocks=owned_stocks)
+    # ---------------------
+    # NEW PART: calculate portfolio summary for GET
+    cash_account = CashAccounts.query.filter_by(user_id=current_user.id).first()
+    wallet_balance = cash_account.balance if cash_account else 0
+
+    owned_stocks_for_summary = db.session.query(
+        Stocks.current_price, db.func.sum(Transactions.quantity).label('total_shares')
+    ).join(Transactions).filter(
+        Transactions.user_id == current_user.id
+    ).group_by(Stocks.id).all()
+
+    stock_value_total = sum(float(stock_price) * float(total_shares) for stock_price, total_shares in owned_stocks_for_summary)
+    net_worth = wallet_balance + stock_value_total
+    # ---------------------
+
+    return render_template("sell_stock.html", 
+                           owned_stocks=owned_stocks,
+                           wallet_balance=wallet_balance, 
+                           stock_value_total=stock_value_total, 
+                           net_worth=net_worth)
+
 
 @app.route('/')
 def index():

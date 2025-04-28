@@ -6,6 +6,10 @@ from functools import wraps
 from flask_apscheduler import APScheduler
 from datetime import datetime, time 
 import random
+import pytz
+from datetime import datetime
+timezone = pytz.timezone('America/Phoenix')
+
 #import holidays
 #cgage
 # Initialize Flask app
@@ -138,17 +142,21 @@ def is_market_open():
         if settings.force_close:
             return False
 
-        today_str = datetime.now().strftime('%Y-%m-%d')
+        now = datetime.now(timezone)
+        today_str = now.strftime('%Y-%m-%d')
+
         if settings.holidays:
             holidays_list = [h.strip() for h in settings.holidays.split(',') if h.strip()]
             if today_str in holidays_list:
                 return False
 
-        now_time = datetime.now().time()
+        now_time = now.time()
+
         if settings.open_time <= now_time <= settings.close_time:
             return True
         else:
             return False
+
 
 @app.context_processor
 def inject_market_status():

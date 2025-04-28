@@ -108,7 +108,7 @@ class Transactions(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     price_at_trade = db.Column(db.Float, nullable=False)
     transaction_type = db.Column(db.String(10), nullable=False)  # "buy" or "sell"
-    timestamp = db.Column(db.DateTime, default=db.func.current_timestamp())
+    timestamp = db.Column(db.DateTime, nullable=False)
 
     user = db.relationship('Users', backref='transactions')
     stock = db.relationship('Stocks', backref='transactions')
@@ -551,6 +551,7 @@ def buy_stock():
             quantity=quantity,
             price_at_trade=stock.current_price,
             transaction_type="buy"
+            timestamp=datetime.now(timezone)
         )
         db.session.add(transaction)
         db.session.commit()
@@ -661,6 +662,7 @@ def sell_stock():
             quantity=-quantity,
             price_at_trade=stock.current_price,
             transaction_type="sell"
+            timestamp=datetime.now(timezone)
         )
         db.session.add(transaction)
         db.session.commit()

@@ -550,7 +550,7 @@ def buy_stock():
             stock_id=stock.id,
             quantity=quantity,
             price_at_trade=stock.current_price,
-            transaction_type="buy"
+            transaction_type="buy",
             timestamp=datetime.now(timezone)
         )
         db.session.add(transaction)
@@ -661,7 +661,7 @@ def sell_stock():
             stock_id=stock.id,
             quantity=-quantity,
             price_at_trade=stock.current_price,
-            transaction_type="sell"
+            transaction_type="sell",
             timestamp=datetime.now(timezone)
         )
         db.session.add(transaction)

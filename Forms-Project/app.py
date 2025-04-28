@@ -487,8 +487,7 @@ def delete_stock(stock_id):
     return redirect(url_for("view_stocks"))
 
 
-@app.route('/buy-stock', methods=['GET', 'POST'])
-@login_required
+
 @app.route('/buy-stock', methods=['GET', 'POST'])
 @login_required
 def buy_stock():
